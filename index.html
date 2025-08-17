@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TempMail - Temporary Email Service</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-gray-200 font-mono min-h-screen flex flex-col">
+  <!-- HEADER -->
+  <header class="border-b border-gray-800 bg-black/70 backdrop-blur-sm">
+    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center">
+      <span class="text-xl text-cyan-400">&gt; TEMPMAIL.</span>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="flex-1 flex items-center justify-center px-4">
+    <div class="max-w-3xl w-full text-center">
+      <h1 class="text-4xl sm:text-5xl font-bold text-white mb-4">Temporary Email</h1>
+      <p class="text-gray-300 mb-1">Secure temporary email addresses.</p>
+      <p class="text-gray-500 mb-8">Built for speed and privacy.</p>
+
+      <div class="grid sm:grid-cols-2 gap-6 mb-6 text-left">
+        <!-- PREFIX -->
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">EMAIL_PREFIX:</label>
+          <div class="flex gap-2">
+            <input id="prefixInput" class="flex-1 bg-black border border-gray-700 rounded-md px-3 py-2 text-cyan-300 focus:ring-2 focus:ring-cyan-500 outline-none" placeholder="enter_prefix">
+            <button onclick="generateRandom()" class="border border-gray-600 hover:bg-gray-800 rounded-md px-3">↻</button>
+          </div>
+        </div>
+        <!-- DOMAIN -->
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">DOMAIN:</label>
+          <select id="domainSelect" class="w-full bg-black border border-gray-700 rounded-md px-3 py-2 text-cyan-300 focus:ring-2 focus:ring-cyan-500 outline-none">
+            <option>barid.site</option>
+            <option>vwh.sh</option>
+            <option>iusearch.lol</option>
+            <option>lifetalk.us</option>
+            <option>z44d.pro</option>
+            <option>wael.fun</option>
+            <option>tawbah.site</option>
+            <option>kuruptd.ink</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Copy & Access Buttons -->
+      <div class="flex justify-center gap-4 mb-6">
+        <button id="copyBtn" class="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded-md text-cyan-300">
+          Copy Email
+        </button>
+        <button id="accessBtn" onclick="showInbox()" class="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-8 py-3 rounded-md">
+          ACCESS INBOX &gt;
+        </button>
+      </div>
+
+      <div id="inboxSection" class="hidden mt-10 text-left">
+        <h2 class="text-lg font-bold mb-3">Inbox</h2>
+        <div id="inbox" class="space-y-3 text-sm"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-gray-800 bg-black/70 backdrop-blur-sm">
+    <div class="max-w-6xl mx-auto px-4 py-6 text-sm text-gray-400 flex justify-between">
+      <span>Secure temporary email service</span>
+      <span><a href="https://api.barid.site/" target="_blank" class="hover:text-cyan-400">API Docs</a></span>
+    </div>
+  </footer>
+
+  <script>
+    let prefix = Math.random().toString(36).slice(2,10);
+
+    function generateRandom(){
+      prefix = Math.random().toString(36).slice(2,10);
+      document.getElementById("prefixInput").value = prefix;
+    }
+
+    function getCurrentAddress(){
+      const domain = document.getElementById("domainSelect").value;
+      const pre = document.getElementById("prefixInput").value || prefix;
+      return pre + "@" + domain;
+    }
+
+    async function showInbox(){
+      const address = getCurrentAddress();
+      document.getElementById("inboxSection").classList.remove("hidden");
+      document.getElementById("inbox").innerHTML = `<p class='text-gray-500'>Loading emails for <span class='text-cyan-400'>${address}</span>...</p>`;
+      try {
+        const res = await fetch(`https://api.barid.site/emails/${address}?limit=10`);
+        const data = await res.json();
+        if(data.success && data.result.length > 0){
+          document.getElementById("inbox").innerHTML = data.result.map(m => `
+            <div class="p-3 border border-gray-700 rounded-md hover:bg-gray-800 cursor-pointer">
+              <p class="font-bold">${m.from_address}</p>
+              <p>${m.subject}</p>
+              <p class="text-xs text-gray-500">${new Date(m.received_at*1000).toLocaleString()}</p>
+            </div>
+          `).join('');
+        } else {
+          document.getElementById("inbox").innerHTML = "<p class='text-gray-500'>No emails yet</p>";
+        }
+      } catch(err){
+        document.getElementById("inbox").innerHTML = "<p class='text-red-400'>Error loading inbox</p>";
+      }
+    }
+
+    // Copy button
+    document.getElementById("copyBtn").onclick = () => {
+      const address = getCurrentAddress();
+      navigator.clipboard.writeText(address);
+      document.getElementById("copyBtn").innerText = "Copied!";
+      setTimeout(() => document.getElementById("copyBtn").innerText = "Copy Email", 1500);
+    };
+
+    // Auto-fill prefix/domain from URL
+    function checkURL() {
+      const path = window.location.pathname.slice(1); // ambil setelah "/"
+      if(path.includes("@")){
+        const [pre, dom] = path.split("@");
+        if(pre) document.getElementById("prefixInput").value = pre;
+        if(dom){
+          const domainSelect = document.getElementById("domainSelect");
+          for(let opt of domainSelect.options){
+            if(opt.value === dom){ opt.selected = true; break; }
+          }
+        }
+      } else {
+        // kalau ga ada @, generate random
+        generateRandom();
+      }
+    }
+
+    checkURL();
+  </script>
+</body>
+</html>
