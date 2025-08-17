@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Temp Mail</title>
+  <!-- Tailwind via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <div class="max-w-5xl mx-auto px-4 py-6 md:py-10">
+    <!-- Header -->
+    <header class="mb-6 md:mb-10">
+      <div class="flex items-center justify-between">
+        <h1 class="font-mono text-cyan-400 text-2xl md:text-4xl">&gt; TEMPMAIL.</h1>
+      </div>
+      <p class="text-slate-400 mt-2 text-sm md:text-base">Secure temporary email service • Built for speed & privacy</p>
+    </header>
+
+    <!-- Controls Card -->
+    <section class="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4 md:p-6 backdrop-blur">
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 items-center">
+        <!-- prefix -->
+        <div class="md:col-span-5">
+          <label class="block text-xs md:text-sm text-slate-300 mb-1 font-mono">EMAIL_PREFIX</label>
+          <div class="flex gap-2">
+            <input id="prefix" placeholder="enter_prefix"
+                   class="w-full h-11 rounded-lg border border-slate-800 bg-slate-950/70 px-3 font-mono text-sm outline-none focus:ring-2 focus:ring-cyan-500" />
+            <button id="btnRnd" title="generate"
+                    class="h-11 w-11 rounded-lg border border-slate-800 hover:bg-slate-800/60 flex items-center justify-center">↻</button>
+          </div>
+        </div>
+
+        <!-- domain -->
+        <div class="md:col-span-4">
+          <label class="block text-xs md:text-sm text-slate-300 mb-1 font-mono">DOMAIN</label>
+          <select id="domain"
+                  class="w-full h-11 rounded-lg border border-slate-800 bg-slate-950/70 px-3 font-mono text-sm outline-none focus:ring-2 focus:ring-cyan-500"></select>
+        </div>
+
+        <!-- action buttons -->
+        <div class="md:col-span-3 flex flex-col sm:flex-row gap-2 mt-1">
+          <button id="btnSet"
+                  class="h-11 flex-1 rounded-lg bg-cyan-500 text-slate-950 font-mono text-sm px-4 hover:bg-cyan-400">
+            ACCESS INBOX &gt;
+          </button>
+          <button id="btnCopy"
+                  class="h-11 flex-1 rounded-lg border border-slate-800 hover:bg-slate-800/60 font-mono text-sm px-4">
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-3 text-slate-400 text-xs md:text-sm">
+        Current: <span id="curr" class="text-cyan-300 font-mono">-</span>
+      </div>
+    </section>
+
+    <!-- Inbox -->
+    <section class="mt-6 md:mt-8">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-mono text-lg md:text-xl">Inbox</h2>
+        <button id="btnRefresh"
+                class="px-3 py-2 rounded-lg border border-slate-800 hover:bg-slate-800/60 text-sm">
+          Refresh
+        </button>
+      </div>
+
+      <div id="list"
+           class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3">
+        <!-- items injected here -->
+      </div>
+      <p id="emptyState" class="text-slate-400 text-sm hidden"><i>No emails yet…</i></p>
+    </section>
+  </div>
+
+  <!-- Modal (for small screens detail view) -->
+  <div id="modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-3 z-50">
+    <div class="bg-white text-slate-900 w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden">
+      <div class="flex items-center justify-between p-3 border-b">
+        <div class="font-semibold truncate pr-2" id="modalTitle">Email</div>
+        <button onclick="closeModal()" class="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200">Close</button>
+      </div>
+      <div class="max-h-[75vh] overflow-y-auto">
+        <div id="modalBody" class="p-3"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentEmail = null;
+
+    async function loadDomains(){
+      const r = await fetch('/api/domains');
+      const j = await r.json();
+      const sel = document.getElementById('domain');
+      sel.innerHTML = '';
+      j.domains.forEach(d => {
+        const o = document.createElement('option');
+        o.value = d; o.textContent = d;
+        sel.appendChild(o);
+      });
+    }
+
+    async function randomEmail(){
+      const r = await fetch('/api/new');
+      const j = await r.json();
+      const domainSel = document.getElementById('domain');
+      const domain = domainSel.value || j.email.split('@')[1];
+      const pref = j.email.split('@')[0];
+      setEmail(`${pref}@${domain}`);
+    }
+
+    async function accessInbox(){
+      const pref = document.getElementById('prefix').value.trim();
+      const dom = document.getElementById('domain').value;
+      if(!pref){ alert('Prefix kosong'); return; }
+      const fd = new URLSearchParams(); fd.append('address', `${pref}@${dom}`);
+      const r = await fetch('/api/custom', { method:'POST', body: fd, headers: { 'Content-Type':'application/x-www-form-urlencoded' }});
+      const j = await r.json();
+      setEmail(j.email);
+      history.replaceState(null, '', '/' + encodeURIComponent(j.email));
+    }
+
+    function setEmail(addr){
+      currentEmail = addr;
+      document.getElementById('curr').textContent = addr;
+      document.getElementById('prefix').value = addr.split('@')[0] || '';
+      loadInbox();
+    }
+
+    function copyEmail(){
+      if(!currentEmail) return;
+      navigator.clipboard.writeText(currentEmail);
+    }
+
+    async function loadInbox(){
+      if(!currentEmail) return;
+      const res = await fetch('/api/inbox/' + encodeURIComponent(currentEmail));
+      const data = await res.json();
+      const wrap = document.getElementById('list');
+      const empty = document.getElementById('emptyState');
+
+      if(!data.length){
+        wrap.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      wrap.innerHTML = data.map(m => renderCard(m)).join('');
+      // attach handlers for newly created cards
+      document.querySelectorAll('[data-open]').forEach(btn => {
+        btn.onclick = () => openDetail(btn.getAttribute('data-open'));
+      });
+    }
+
+    function renderCard(m){
+      const safeText = (t='') => t.replaceAll('&','&amp;').replaceAll('<','&lt;');
+      const hasHtml = !!m.body_html;
+      const hasText = !!m.body_text;
+      const atts = (m.attachments||[]).map(a => `<a class="text-cyan-400 hover:underline block" href="${a.url}" target="_blank" rel="noopener">${a.filename}</a>`).join('');
+
+      // small screens: open modal; large screens: inline details
+      return `
+        <article class="bg-slate-900/60 border border-slate-800/60 rounded-xl p-4">
+          <h3 class="font-semibold mb-1 truncate">${safeText(m.subject || '(no subject)')}</h3>
+          <p class="text-slate-400 text-xs mb-3">From: ${safeText(m.from)} • ${new Date(m.date).toLocaleString()}</p>
+
+          <!-- inline details (hidden on small screens) -->
+          <div class="hidden md:block space-y-3">
+            ${hasHtml ? `<iframe class="w-full h-72 rounded-lg border border-slate-800 bg-white" sandbox="allow-same-origin" srcdoc="${m.body_html.replace(/"/g,'&quot;')}"></iframe>` : ''}
+            ${!hasHtml && hasText ? `<pre class="bg-slate-950/70 border border-slate-800 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap">${safeText(m.body_text)}</pre>` : ''}
+            ${atts ? `<div><div class="text-slate-300 text-sm mb-1">Attachments</div>${atts}</div>` : ''}
+          </div>
+
+          <!-- open in modal on small screens -->
+          <button class="md:hidden mt-3 w-full rounded-lg border border-slate-800 py-2 hover:bg-slate-800/60"
+                  data-open='${JSON.stringify(m).replaceAll("'", "&apos;")}'>
+            View
+          </button>
+        </article>
+      `;
+    }
+
+    function openDetail(mJson){
+      const m = JSON.parse(mJson.replaceAll("&apos;","'"));
+      const modal = document.getElementById('modal');
+      const title = document.getElementById('modalTitle');
+      const body = document.getElementById('modalBody');
+
+      title.textContent = m.subject || '(no subject)';
+
+      const atts = (m.attachments||[]).map(a => `<a class="text-blue-600 hover:underline block" href="${a.url}" target="_blank" rel="noopener">${a.filename}</a>`).join('');
+      body.innerHTML = `
+        <div class="px-1 pb-3 text-sm text-slate-700">
+          <div class="mb-2"><b>From:</b> ${m.from}</div>
+          <div class="mb-3"><b>Date:</b> ${new Date(m.date).toLocaleString()}</div>
+          ${m.body_html ? `<iframe class="w-full h-80 border rounded" sandbox="allow-same-origin" srcdoc="${m.body_html.replace(/"/g,'&quot;')}"></iframe>` : ''}
+          ${!m.body_html && m.body_text ? `<pre class="bg-slate-100 border rounded p-3 overflow-x-auto whitespace-pre-wrap">${m.body_text.replaceAll('&','&amp;').replaceAll('<','&lt;')}</pre>` : ''}
+          ${atts ? `<div class="mt-3"><div class="font-medium mb-1">Attachments</div>${atts}</div>` : ''}
+        </div>
+      `;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeModal(){
+      const modal = document.getElementById('modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // Wire up buttons
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadDomains();
+
+      // If opened as /user@domain
+      const path = decodeURIComponent(location.pathname.slice(1));
+      if(path.includes('@')){
+        const [pref, dom] = path.split('@');
+        document.getElementById('prefix').value = pref;
+        // wait one tick to ensure domains rendered, then select domain if exists
+        const sel = document.getElementById('domain');
+        const tryPick = () => {
+          const opt = [...sel.options].find(o => o.value === dom);
+          if(opt) sel.value = dom;
+        };
+        tryPick();
+        setEmail(path);
+      } else {
+        await randomEmail();
+      }
+
+      // Buttons
+      document.getElementById('btnRnd').onclick = randomEmail;
+      document.getElementById('btnSet').onclick = accessInbox;
+      document.getElementById('btnCopy').onclick = copyEmail;
+      document.getElementById('btnRefresh').onclick = loadInbox;
+
+      // Auto refresh
+      setInterval(loadInbox, 10000);
+    });
+  </script>
+</body>
+</html>
