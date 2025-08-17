@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Temp Mail</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-6">
+  <div class="max-w-3xl mx-auto space-y-6">
+
+    <!-- Email box -->
+    <div class="bg-white shadow-lg rounded-xl p-4 flex flex-col md:flex-row items-center gap-4">
+      <input id="emailInput" class="flex-1 border rounded-xl p-2" readonly />
+      <select id="domainSelect" class="border rounded-xl p-2"></select>
+      <button id="copyBtn" class="bg-blue-500 text-white px-4 py-2 rounded-xl flex items-center">
+        Copy
+      </button>
+      <button id="refreshBtn" class="bg-green-500 text-white px-4 py-2 rounded-xl flex items-center">
+        Refresh
+      </button>
+    </div>
+
+    <!-- Inbox -->
+    <div class="bg-white shadow-lg rounded-xl p-4">
+      <h2 class="font-bold text-lg mb-2">Inbox</h2>
+      <div id="inbox" class="space-y-2 text-sm"></div>
+    </div>
+
+    <!-- Email detail -->
+    <div id="emailDetail" class="bg-white shadow-lg rounded-xl p-4 hidden"></div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
